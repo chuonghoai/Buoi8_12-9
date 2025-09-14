@@ -1,6 +1,7 @@
 import tkinter as tk
 import random
 import copy
+import heapq
 from PIL import Image, ImageTk
 from collections import deque
 
@@ -24,12 +25,6 @@ class eight_queen:
         
         self.img_null = tk.PhotoImage(width=1, height=1)
 
-        #Tạo ma trận các tọa độ sắp xếp ngẫu nhiên
-        self.pos_random = [[(i, j) for j in range(self.n)] for i in range(self.n)]
-        _ = [pos for row in self.pos_random for pos in row]
-        random.shuffle(_)
-        self.pos_random = [_[i*self.n:(i+1)*self.n] for i in range(self.n)]
-
         #Vị trí quân xe mục tiêu cần đạt được
         self.node_goal = []
         _ = [col for col in range(self.n)]
@@ -38,21 +33,21 @@ class eight_queen:
             j = _.pop()
             self.node_goal.append((i, j))
 
-
         #Đặt xe vào ma trận với các tọa độ từ node
         node_xa = self.set_xa_UCS()
+        path = node_xa[2]
+        cost = node_xa[0]
         self.pos_xa = [[0] * self.n for _ in range(self.n)]
-        for x, y in node_xa:
+        for x, y in path:
             self.pos_xa[x][y] = 1
 
-        cost = self.cost_cal(node_xa)
-        cost_txt = tk.Label(self.root, bg="lightgray", text=f"Chi phí: {cost}", font=("Arial", 15))
-        cost_txt.grid(row=1, column=0, columnspan=2, pady=5)
-        
         #Vẽ lên giao diện
         self.buttons_left = self.create_widget(self.frame_left, False)
         self.buttons_right = self.create_widget(self.frame_right, True)
 
+        cost_txt = tk.Label(self.root, bg="lightgray", text=f"Chi phí: {cost}", font=("Arial", 15))
+        cost_txt.grid(row=1, column=0, columnspan=2, pady=5)
+        
     def create_widget(self, frame, draw_xa):
         buttons = []
         for i in range(self.n):
@@ -77,64 +72,46 @@ class eight_queen:
     #Hàm đặt xe bằng UCS
     def set_xa_UCS(self):
         #Stack và các biến ban đầu
-        frontier = deque([])    #stack
+        frontier = []    #stack
         xst, yst = self.node_goal[0][0], self.node_goal[0][1]
-        node = [(xst, yst, 0)]
-        if self.check_goal(node):
-            return node
-        frontier.append((node))
+        node = (1, (xst, yst), [(xst, yst)])     #(cost, tọa độ mới nhất, các tọa độ đặt xe)
+
+        heapq.heappush(frontier, node)
         explored = []
         
-        while True:
-            if not frontier:
-                return None
-            node = frontier.pop()
+        while frontier:
+            node = heapq.heappop(frontier)
+            if self.check_goal(node[2]):
+                return node
             explored.append(node)
+            cost = node[0]
 
-            #Duyệt từng tọa độ x, y trong ma trận tọa độ random ban đầu
-            for _ in self.pos_random:
-                for x, y in _:
-                    can_set = True
-                    for (node_x, node_y, _t) in node:     #Kiểm tra mỗi tọa độ x, y hiện tại có khắc quân cờ nào trong node ko
-                        if node_x == x or node_y == y:
-                            can_set = False
-                            break
-                    if can_set:
-                        child = self.child_node(node, x, y)     #Tạo nhánh cây con child 
-                        if child not in frontier and child not in explored:
-                            if self.check_goal(child):
-                                return child
-                            if len(node) < self.n:      #Giới hạn lại số lượng quân cờ
-                                frontier.append(child)
+            #Duyệt từng tọa độ x, y
+            x = node[1][0] + 1
+            for y in range(self.n):
+                can_set = self.canSet(node[2], x, y)
+                cost += 1
+                if can_set:
+                    child = self.child_node(node, cost, x, y)     #Tạo nhánh cây con child 
+                    if child not in frontier and child not in explored:
+                        heapq.heappush(frontier, child)
     
-    def check_goal(self, node):     #Kiểm tra điều kiện đạt goal: số lượng đã đủ và ko 2 quân nào khắc nhau
-        if len(node) != self.n:
-            return False
-        else:
-            for i in range(len(node)):
-                for j in range(i + 1, len(node)):
-                    if node[i][0] == node[j][0] or node[i][1] == node[j][1]:
-                        return False
+    def check_goal(self, node):     #Kiểm tra điều kiện đạt goal: trạng thái của node = tạo độ các quân xe đã được định sẵn
+        if node == self.node_goal:
+            return True
+        return False
+    
+    def child_node(self, node, cost, x, y):       #Sinh ra nhánh con child
+        path = node[2].copy()
+        path.append((x, y))
+        return (cost, (x, y), path)  
+    
+    def canSet(self, node, x, y):
+        for node_x, node_y in node:     #Kiểm tra mỗi tọa độ x, y hiện tại có khắc quân cờ nào trong node ko
+            if x == node_x or y == node_y:
+                return False
         return True
-    
-    def child_node(self, node, x, y):       #Sinh ra nhánh con child
-        child = []
-        child = copy.deepcopy(node)
-        child.append((x, y))
-        return child  
 
-    #Chi phí = khoảng cách giữa các ô ở mỗi hàng
-    def cost_cal(self, node):           #node(x, y)     
-        col = [y for (_, y, __) in node]
-        col_g = [y for (_, y) in self.node_goal]        #self.node_goal(x, y)
-
-        cost = 0
-        i = 0
-        while i < len(node):
-            cost += abs(col[i] - col_g[i])
-            i += 1
-        return cost
-            
 if __name__ == "__main__":
     root = tk.Tk()
     game = eight_queen(root)
