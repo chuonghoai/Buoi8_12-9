@@ -4,7 +4,7 @@ import copy
 from PIL import Image, ImageTk
 from collections import deque
 
-class eight_queen:
+class eight_xa:
     def __init__(self, root):
         self.root = root
         self.root.title("8 queen")
@@ -102,5 +102,5 @@ class eight_queen:
 
 if __name__ == "__main__":
     root = tk.Tk()
-    game = eight_queen(root)
+    game = eight_xa(root)
     root.mainloop()
